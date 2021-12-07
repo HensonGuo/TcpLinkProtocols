@@ -6,6 +6,7 @@ from common.response import PacketResponse
 from common.constants import *
 from common.logger import getLogger
 from common.crypt import RC4
+from common.packet import Packet
 import json
 
 
@@ -50,6 +51,16 @@ class ClientConnection(Thread):
         buffer = self._crytSender.crypt(req.serialize())
         self._connection.send(buffer)
 
+    def sendCustomTestMessage(self):
+        tag = 10
+        value = "test..."
+        data = Packet()
+        data.putUint32(tag)
+        data.putString(value)
+        req = PacketRequest(SID_APP, CID_CUSTOM_TEST, [[data.serialize(), PacketTypes.buffer],])
+        buffer = self._crytSender.crypt(req.serialize())
+        self._connection.send(buffer)
+
     def handle_request(self):
         try:
             tagLength = 4
@@ -66,6 +77,8 @@ class ClientConnection(Thread):
                     self._logger.info(f"sid: {response.sid} cid: {response.command} msg:{value}")
                     data = json.loads(value[0])
                     self.sendMessage(data.get("text"))
+                elif response.sid == SID_APP and response.command == CID_CUSTOM_TEST:
+                    self.sendCustomTestMessage()
         except Exception as e:
             self._logger.info(e.args)
             # self.close()

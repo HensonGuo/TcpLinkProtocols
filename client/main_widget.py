@@ -1,7 +1,22 @@
 from PyQt5 import QtWidgets
 from client.server_link import ServerLink
-from common.response import JsonResponse
+from common.response import JsonResponse, PacketParser
+from common.packet import UnPack, PacketTypes
 from common.constants import *
+
+
+class CustomTestResponse(metaclass=PacketParser):
+    __sid__ = SID_APP
+    __command__ = CID_CUSTOM_TEST
+    __proto__ = (PacketTypes.custom, )
+    __slots__ = ["data"]
+
+    def getCustom(self, name, unpacket: UnPack):
+        buffer = unpacket.getBuffer()
+        unpacket = UnPack(buffer)
+        tag = unpacket.getUint32()
+        value = unpacket.getString()
+        return {tag:value}
 
 
 class MainWidget(QtWidgets.QWidget):
@@ -47,6 +62,12 @@ class MainWidget(QtWidgets.QWidget):
         self._disConnBtn.setText(u"断开连接")
         self._disConnBtn.clicked.connect(self._onDisConnBtnClicked)
         leftAreaLayout.addWidget(self._disConnBtn)
+
+        self._customUnpackTestBtn = QtWidgets.QPushButton()
+        self._customUnpackTestBtn.setFixedSize(100, 30)
+        self._customUnpackTestBtn.setText(u"自定义解包测试")
+        self._customUnpackTestBtn.clicked.connect(self._onCustomUnpackTestBtnClicked)
+        leftAreaLayout.addWidget(self._customUnpackTestBtn)
         leftAreaLayout.addStretch(1)
 
     def _initRightArea(self, rightWidget):
@@ -76,6 +97,7 @@ class MainWidget(QtWidgets.QWidget):
 
     def _initConnections(self):
         self._serverLink.addJsonHandler(SID_APP, CID_SENDMSG, self._onSendMsg)
+        self._serverLink.addHandler(SID_APP, CID_CUSTOM_TEST, self._onCustomTestMsg)
 
     def _onConnBtnClicked(self):
         self._serverLink.link('127.0.0.1', 8008)
@@ -86,8 +108,16 @@ class MainWidget(QtWidgets.QWidget):
     def _onSendBtnClicked(self):
         self._serverLink.sendJson(SID_APP, CID_SENDMSG, {"text":self._editArea.toPlainText()})
 
+    def _onCustomUnpackTestBtnClicked(self):
+        self._serverLink.sendJson(SID_APP, CID_CUSTOM_TEST, {})
+
     def _onSendMsg(self, response:JsonResponse):
         self._consoleArea.append(response.jsondata.get("text"))
+
+    def _onCustomTestMsg(self, response:CustomTestResponse):
+        # 统一查询频道列表配置
+        self._consoleArea.append(response.data.get(10))
+
 
 
 if __name__ == "__main__":
