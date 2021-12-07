@@ -2,9 +2,7 @@ from PyQt5 import QtCore, QtNetwork
 from common.crypt import RC4
 from common.request import Request
 from common.response import PacketResponse
-from common.packet import PacketTypes
 from common.logger import getLogger
-from common.constants import *
 
 
 class TcpLink(QtCore.QObject):

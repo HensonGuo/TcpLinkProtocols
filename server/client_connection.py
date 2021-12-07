@@ -1,5 +1,5 @@
 from threading import Thread
-from socket import socket
+from socket import socket, SOL_SOCKET, SO_KEEPALIVE, SIO_KEEPALIVE_VALS
 from common.request import PacketRequest
 from common.packet import PacketTypes
 from common.response import PacketResponse
@@ -20,6 +20,15 @@ class ClientConnection(Thread):
         self._adress = adress
         self._crytSender = RC4(self.rc4Senderkey)
         self._crytReader = RC4(self.rc4Readerkey)
+        self._connection.setsockopt(SOL_SOCKET, SO_KEEPALIVE, True)
+        self._connection.ioctl(
+            SIO_KEEPALIVE_VALS,
+            (
+                1, #开启保活机制
+                60*1000, #1分钟后如果对方还没反应，开始探测连接是否存在
+                30*1000
+            )
+        )
 
     def run(self) -> None:
         while True:

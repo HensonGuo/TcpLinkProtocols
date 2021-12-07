@@ -81,7 +81,7 @@ class MainWidget(QtWidgets.QWidget):
         self._serverLink.link('127.0.0.1', 8008)
 
     def _onDisConnBtnClicked(self):
-        self._serverLink.close()
+        self._serverLink.unlink()
 
     def _onSendBtnClicked(self):
         self._serverLink.sendJson(SID_APP, CID_SENDMSG, {"text":self._editArea.toPlainText()})
