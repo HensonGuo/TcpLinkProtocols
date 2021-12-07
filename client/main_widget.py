@@ -1,5 +1,6 @@
 from PyQt5 import QtWidgets
 from client.tcp_link import TcpLink
+from common.constants import *
 
 
 class MainWidget(QtWidgets.QWidget):
@@ -73,13 +74,12 @@ class MainWidget(QtWidgets.QWidget):
 
     def _onConnBtnClicked(self):
         self._tcpLink.connectToHost('127.0.0.1', 8008)
-        # self._tcpLink.connectToHost('192.168.42.9', 5100)
 
     def _onDisConnBtnClicked(self):
         self._tcpLink.close()
 
     def _onSendBtnClicked(self):
-        self._tcpLink.sendJson(1, 1, {"text":self._editArea.toPlainText()})
+        self._tcpLink.sendJson(SID_APP, CID_SENDMSG, {"text":self._editArea.toPlainText()})
 
 
 if __name__ == "__main__":

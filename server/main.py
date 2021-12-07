@@ -28,4 +28,6 @@ def server_forever():
 
 
 if __name__ == '__main__':
+    import os
+    os.environ["debug"] = "1"
     server_forever()

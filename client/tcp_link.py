@@ -1,7 +1,7 @@
 from PyQt5 import QtCore, QtNetwork
-from common.crypt import rc4crypt
+from common.crypt import RC4
 from common.request import Request, JsonRequest
-from common.response import PacketResponse, PacketParser
+from common.response import PacketResponse
 from common.packet import PacketTypes
 from common.logger import getLogger
 from common.constants import *
@@ -21,8 +21,8 @@ class TcpLink(QtCore.QObject):
         self._tcpSocket.connected.connect(self._onConnected)
         self._tcpSocket.disconnected.connect(self._onDisconnected)
 
-        self._cryptSender:rc4crypt = None
-        self._cryptReader:rc4crypt = None
+        self._cryptSender:RC4 = None
+        self._cryptReader:RC4 = None
         self._isConnected = False
         self._callbacks = []
 
@@ -52,7 +52,8 @@ class TcpLink(QtCore.QObject):
         buffer = request.serialize()
         if self._cryptSender:
             buffer = self._cryptSender.crypt(buffer)
-        self._tcpSocket.write(buffer)
+        bytes = QtCore.QByteArray().append(buffer)
+        self._tcpSocket.writeData(bytes)
 
     def sendJson(self, sid: int, cid: int, data: dict, callback=None):
         self.send(JsonRequest(sid, cid, data), callback)
@@ -61,14 +62,14 @@ class TcpLink(QtCore.QObject):
         if not rc4key:
             self._cryptSender = None
         else:
-            self._cryptSender = rc4crypt(rc4key)
+            self._cryptSender = RC4(rc4key)
         return 0
 
     def setCryptReader(self, rc4key=''):
         if not rc4key:
             self._cryptReader = None
         else:
-            self._cryptReader = rc4crypt(rc4key)
+            self._cryptReader = RC4(rc4key)
         return 0
 
     def _onConnected(self):
@@ -101,7 +102,9 @@ class TcpLink(QtCore.QObject):
             key = resp.key()
             sid, cid = key
             if sid == SID_APP and cid == CID_RC4KEY:
-                self._cryptReader, self._cryptSender =  resp.extract([PacketTypes.string, PacketTypes.string])
+                cryptReader, cryptSender =  resp.extract([PacketTypes.buffer, PacketTypes.buffer])
+                self.setCryptReader(cryptReader)
+                self.setCryptSender(cryptSender)
 
             if key in self._callbacks:
                 callback = self._callbacks[key]
@@ -120,11 +123,3 @@ class TcpLink(QtCore.QObject):
         self._logger.info("_onDisplayError {}".format(reason))
         self._isConnected = False
         self.sigConnectResult.emit(False)
-
-
-
-class Rc4Response(metaclass=PacketParser):
-    __sid__ = SID_APP
-    __command__ = CID_RC4KEY
-    __proto__ = (PacketTypes.string, )
-    __slots__ = ["rc4key"]

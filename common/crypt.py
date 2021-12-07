@@ -1,62 +1,54 @@
-import sys
-import base64
+# -*- coding: utf-8 -*-
+class RC4:
+    """
+    This class implements the RC4 streaming cipher.
 
-# ======================================================================
-# RC4 cryption
-# ======================================================================
+    Derived from http://cypherpunks.venona.com/archive/1994/09/msg00304.html
+    """
 
-class rc4crypt(object):
-    def __init__(self, key=''):
-        self._key = key
-        self._init_sbox()
+    def __init__(self, key, streaming=True):
+        assert (isinstance(key, (bytes, bytearray)))
 
-    def _init_sbox(self):
-        box = [x for x in range(256)]
-        x = y = 0
-        if len(self._key) > 0:
-            for i in range(256):
-                x = (x + box[i] + ord(self._key[i % len(self._key)])) & 255
-                box[i], box[x] = box[x], box[i]
-            x = y = 0
-        self._box = box
-        self._x = x
-        self._y = y
+        # key scheduling
+        S = list(range(0x100))
+        j = 0
+        for i in range(0x100):
+            j = (S[i] + key[i % len(key)] + j) & 0xff
+            S[i], S[j] = S[j], S[i]
+        self.S = S
+
+        # in streaming mode, we retain the keystream state between crypt()
+        # invocations
+        if streaming:
+            self.keystream = self._keystream_generator()
+        else:
+            self.keystream = None
 
     def crypt(self, data):
-        box = self._box
-        x, y = self._x, self._y
-        if len(self._key) == 0:
-            return data
-        out = []
-        for ch in data:
-            x = (x + 1) & 255
-            y = (y + box[x]) & 255
-            box[x], box[y] = box[y], box[x]
-            if isinstance(ch, int):
-                out.append(chr(ch ^ box[(box[x] + box[y]) & 255]))
-            else:
-                out.append(chr(ord(ch) ^ box[(box[x] + box[y]) & 255]))
-        self._x, self._y = x, y
-        return ''.join(out)
+        """
+        Encrypts/decrypts data (It's the same thing!)
+        """
+        assert (isinstance(data, (bytes, bytearray)))
+        keystream = self.keystream or self._keystream_generator()
+        return bytes([a ^ b for a, b in zip(data, keystream)])
 
-    def excrypt(self, plain):
-        res = []
-        i = j = 0
-        box = self._box
-        for s in plain:
-            i = (i + 1) % 256
-            j = (j + box[i]) % 256
-            box[i], box[j] = box[j], box[i]
-            t = (box[i] + box[j]) % 256
-            k = box[t]
-            res.append(chr(ord(s) ^ k))
-        cipher = "".join(res)
-        return cipher
+    def _keystream_generator(self):
+        """
+        Generator that returns the bytes of keystream
+        """
+        S = self.S.copy()
+        x = y = 0
+        while True:
+            x = (x + 1) & 0xff
+            y = (S[x] + y) & 0xff
+            S[x], S[y] = S[y], S[x]
+            i = (S[x] + S[y]) & 0xff
+            yield S[i]
 
 
-aa = rc4crypt("123456sh")
-v = aa.crypt("123456")
-print(v)
-
-bb = rc4crypt("123456sh")
-print(bb.excrypt(v))
+if __name__ == "__main__":
+    x = RC4(b"123456")
+    b = x.crypt(b"123456")
+    print(b)
+    y = RC4(b"123456")
+    print(y.crypt(b))
