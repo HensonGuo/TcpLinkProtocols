@@ -1,6 +1,6 @@
 from PyQt5 import QtCore, QtNetwork
 from common.crypt import RC4
-from common.request import Request, JsonRequest
+from common.request import Request
 from common.response import PacketResponse
 from common.packet import PacketTypes
 from common.logger import getLogger
@@ -8,7 +8,7 @@ from common.constants import *
 
 
 class TcpLink(QtCore.QObject):
-    sigRespData = QtCore.pyqtSignal(str)
+    sigRespData = QtCore.pyqtSignal(object)
     sigConnectResult = QtCore.pyqtSignal(bool)
 
     def __init__(self, parent=None):
@@ -24,7 +24,7 @@ class TcpLink(QtCore.QObject):
         self._cryptSender:RC4 = None
         self._cryptReader:RC4 = None
         self._isConnected = False
-        self._callbacks = []
+        self._callbacks = {}
 
     def connectToHost(self, ip, port):
         self._ip = ip
@@ -54,9 +54,6 @@ class TcpLink(QtCore.QObject):
             buffer = self._cryptSender.crypt(buffer)
         bytes = QtCore.QByteArray().append(buffer)
         self._tcpSocket.writeData(bytes)
-
-    def sendJson(self, sid: int, cid: int, data: dict, callback=None):
-        self.send(JsonRequest(sid, cid, data), callback)
 
     def setCryptSender(self, rc4key=''):
         if not rc4key:
@@ -88,10 +85,14 @@ class TcpLink(QtCore.QObject):
             if self._tcpSocket.bytesAvailable() <= 0:
                 return
             if self._cryptReader:
-                buffer = self._tcpSocket.read(4)
-                length = int.from_bytes(self._cryptReader.crypt(buffer), byteorder='little')
-                buffer = self._tcpSocket.read(length - 4)
-                buffer = self._cryptReader.crypt(buffer)
+                tagLength = 4
+                request = self._tcpSocket.read(tagLength)
+                buffer = self._cryptReader.crypt(request)
+                length = int.from_bytes(buffer, byteorder='little')
+                leftLength = length - tagLength
+                if leftLength > 0:
+                    request = self._tcpSocket.read(leftLength)
+                    buffer = self._cryptReader.crypt(request)
             else:
                 buffer = self._tcpSocket.read(4)
                 length = int.from_bytes(buffer, byteorder='little')
@@ -99,17 +100,13 @@ class TcpLink(QtCore.QObject):
 
             self._logger.debug(buffer)
             resp = PacketResponse(buffer)
-            key = resp.key()
-            sid, cid = key
-            if sid == SID_APP and cid == CID_RC4KEY:
-                cryptReader, cryptSender =  resp.extract([PacketTypes.buffer, PacketTypes.buffer])
-                self.setCryptReader(cryptReader)
-                self.setCryptSender(cryptSender)
 
-            if key in self._callbacks:
-                callback = self._callbacks[key]
+            if resp.key() in self._callbacks:
+                callback = self._callbacks[resp.key()]
                 callback(resp)
-                del self._callbacks[key]
+                del self._callbacks[resp.key()]
+
+            self.sigRespData.emit(resp)
 
     def _onDisplayError(self, socketError):
         if socketError == QtNetwork.QAbstractSocket.RemoteHostClosedError:

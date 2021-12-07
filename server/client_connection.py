@@ -1,6 +1,6 @@
 from threading import Thread
 from socket import socket
-from common.request import PacketRequest, JsonRequest
+from common.request import PacketRequest
 from common.packet import PacketTypes
 from common.response import PacketResponse
 from common.constants import *
@@ -18,7 +18,8 @@ class ClientConnection(Thread):
         self._logger = getLogger("server")
         self._connection = connection
         self._adress = adress
-        self._cryt = RC4(self.rc4Senderkey)
+        self._crytSender = RC4(self.rc4Senderkey)
+        self._crytReader = RC4(self.rc4Readerkey)
 
     def run(self) -> None:
         while True:
@@ -31,19 +32,25 @@ class ClientConnection(Thread):
         self._connection.send(req.serialize())
 
     def sendMessage(self, msg):
-        req = JsonRequest(SID_APP, CID_SENDMSG, {"text":msg})
-        self._connection.send(req.serialize())
+        result = 0
+        reason = ""
+        req = PacketRequest(SID_APP, CID_SENDMSG,
+                            [[result, PacketTypes.uint32],
+                             [reason, PacketTypes.string],
+                             [json.dumps({"text":msg}), PacketTypes.string]])
+        buffer = self._crytSender.crypt(req.serialize())
+        self._connection.send(buffer)
 
     def handle_request(self):
         try:
             tagLength = 4
             request = self._connection.recv(tagLength)
-            buffer = self._cryt.crypt(request)
+            buffer = self._crytReader.crypt(request)
             length = int.from_bytes(buffer, byteorder='little')
             leftLength = length - tagLength
             if leftLength > 0:
                 request = self._connection.recv(leftLength)
-                buffer = self._cryt.crypt(request)
+                buffer = self._crytReader.crypt(request)
                 response = PacketResponse(buffer)
                 if response.sid == SID_APP and response.command == CID_SENDMSG:
                     value = response.extract([PacketTypes.string])

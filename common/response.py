@@ -91,7 +91,6 @@ class PacketResponse(Response):
         dst = up.getUint32()
         composite = up.getUint32()
         isCompressed = (composite & 0x20000) != 0
-        # logger.debug(f"response {sid} {command} {isCompressed}")
         buf = buffer[16:]
         if isCompressed:
             try:

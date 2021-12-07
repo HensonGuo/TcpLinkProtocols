@@ -1,5 +1,6 @@
 from PyQt5 import QtWidgets
-from client.tcp_link import TcpLink
+from client.server_link import ServerLink
+from common.response import JsonResponse
 from common.constants import *
 
 
@@ -8,8 +9,9 @@ class MainWidget(QtWidgets.QWidget):
     def __init__(self):
         super(MainWidget, self).__init__()
         self.setWindowTitle("客户端")
-        self._tcpLink = TcpLink(self)
+        self._serverLink = ServerLink(self)
         self._initUI()
+        self._initConnections()
 
     def _initUI(self):
         self.resize(500, 800)
@@ -72,14 +74,20 @@ class MainWidget(QtWidgets.QWidget):
         self._consoleArea.setEnabled(False)
         rightAreaLayout.addWidget(self._consoleArea)
 
+    def _initConnections(self):
+        self._serverLink.addJsonHandler(SID_APP, CID_SENDMSG, self._onSendMsg)
+
     def _onConnBtnClicked(self):
-        self._tcpLink.connectToHost('127.0.0.1', 8008)
+        self._serverLink.link('127.0.0.1', 8008)
 
     def _onDisConnBtnClicked(self):
-        self._tcpLink.close()
+        self._serverLink.close()
 
     def _onSendBtnClicked(self):
-        self._tcpLink.sendJson(SID_APP, CID_SENDMSG, {"text":self._editArea.toPlainText()})
+        self._serverLink.sendJson(SID_APP, CID_SENDMSG, {"text":self._editArea.toPlainText()})
+
+    def _onSendMsg(self, response:JsonResponse):
+        self._consoleArea.append(response.jsondata.get("text"))
 
 
 if __name__ == "__main__":
