@@ -100,6 +100,7 @@ class PacketResponse(Response):
                 _logger.debug(f"sid:{sid} command:{command} packet decompress fail: {e}", sys.exc_info())
         super(PacketResponse, self).__init__(sid, command, buf)
 
+
 class JsonResponse(Response):
     def __init__(self, resp: PacketResponse, isLong=False):
         super(JsonResponse, self).__init__(resp._sid, resp._command, resp._buffer)

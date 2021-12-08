@@ -101,9 +101,11 @@ class MainWidget(QtWidgets.QWidget):
 
     def _onConnBtnClicked(self):
         self._serverLink.link('127.0.0.1', 8008)
+        self._consoleArea.append("connected")
 
     def _onDisConnBtnClicked(self):
         self._serverLink.unlink()
+        self._consoleArea.append("disconnected ")
 
     def _onSendBtnClicked(self):
         self._serverLink.sendJson(SID_APP, CID_SENDMSG, {"text":self._editArea.toPlainText()})
