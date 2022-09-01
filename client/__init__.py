@@ -1,4 +1,4 @@
-def create(appid, port, cc_version=0):
+def create():
     from client.main_widget import MainWidget
     w = MainWidget()
     return w
